@@ -4,11 +4,32 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MinimalAPISample.Context;
 using MinimalAPISample.Modules;
+using Serilog;
+using Serilog.Sinks.OpenTelemetry;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 var key = Encoding.ASCII.GetBytes("SuperSecretKey");
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.OpenTelemetry(x =>
+    {
+        x.Endpoint = "http://localhost:5341/ingest/otlp/v1/logs";
+        x.Protocol = OtlpProtocol.HttpProtobuf;
+        x.Headers = new Dictionary<string, string>
+        {
+            ["X-Seq-ApiKey"] = "WBPq4wjBhGll1QlL9m6r"
+        };
+        x.ResourceAttributes = new Dictionary<string, object>
+        {
+            ["service.name"] = "WeatherService"
+        };
+    })
+    .CreateLogger();
 
+builder.Services.AddSerilog();
+builder.Services.AddAuthorization();
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -51,18 +72,11 @@ builder.Services.AddSwaggerGen(c =>
         { securityScheme, new[] { "Bearer" } }
     });
 });
+
 var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
-builder.Services.AddOpenTelemetryTracing(builder =>
-{
-    builder
-        .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("JwtAuthApi"))
-        .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddEntityFrameworkCoreInstrumentation()
-        .AddConsoleExporter();
-});
+
 
 if (app.Environment.IsDevelopment())
 {

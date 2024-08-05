@@ -1,0 +1,32 @@
+﻿config:
+  target: 'https://localhost:7206/'
+  phases:
+    - duration: 60
+      arrivalRate: 10
+
+scenarios:
+  - flow:
+      - post:
+          url: '/login'
+          json:
+            username: 'ultwolf'
+            password: '123456'
+      - function: 'setAuthToken'
+      - get:
+          url: '/protected'
+          headers:
+            Authorization: 'Bearer {{ authToken }}'
+
+functions:
+  setAuthToken: |
+    async function (context, events, done) {
+      const loginResponse = await context.http.post('/login', {
+        json: {
+          username: 'ultwolf',
+          password: '123456'
+        }
+      });
+      const responseBody = await loginResponse.json();
+      context.vars.authToken = responseBody.token; // Adjust based on actual response structure
+      done();
+    }

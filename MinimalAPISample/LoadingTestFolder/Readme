@@ -1,0 +1,1 @@
+artillery run load-test.yml --output results.json
